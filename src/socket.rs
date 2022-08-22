@@ -1,9 +1,15 @@
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
+
+const BUFFER_SIZE: usize = 1024;
 
 pub struct Socket {
     stream: TcpStream,
     serial: u64,
     is_open: bool,
+    send_buffer: [u8; BUFFER_SIZE],
 }
 
 impl Socket {
@@ -12,6 +18,7 @@ impl Socket {
             stream,
             serial,
             is_open: true,
+            send_buffer: [0; BUFFER_SIZE],
         }
     }
     pub async fn start_reading(&mut self) -> Result<(), std::io::Error> {
@@ -26,11 +33,14 @@ impl Socket {
                 return Ok(());
             }
 
-            let read_body_result = self.read_body().await;
+            let read_body_result = self.read_string().await;
             if read_body_result.is_err() || !self.is_open {
                 println!("stop reading serial:{}", self.serial);
                 return Ok(());
             }
+
+            // レスポンス送信テスト
+            self.send_string("Response 日本語テスト").await?;
         }
     }
 
@@ -52,8 +62,10 @@ impl Socket {
         }
         Ok(())
     }
-    async fn read_body(&mut self) -> Result<(), std::io::Error> {
-        let mut buf = [0; 4096];
+
+    // 文字列読み込みサンプル
+    async fn read_string(&mut self) -> Result<(), std::io::Error> {
+        let mut buf = [0; BUFFER_SIZE];
 
         let n = self.stream.read(&mut buf).await;
         match n {
@@ -77,6 +89,54 @@ impl Socket {
                 println!("read body error occured. {}", err.to_string());
             }
         }
+        Ok(())
+    }
+
+    // 送信
+    pub async fn send_string(&mut self, string: &str) -> Result<(), std::io::Error> {
+        let header_size = self.write_header_to_buffer(100);
+        match self.write_string_to_buffer(string, header_size) {
+            Ok(packet_size) => {
+                println!("send packet_size: {} ", packet_size);
+                self.write_buffer(packet_size).await
+            }
+            Err(err) => {
+                println!("{}", err);
+                Ok(())
+            }
+        }
+    }
+
+    // バッファは先頭から書き換え
+    fn write_header_to_buffer(&mut self, packet_id: u16) -> usize {
+        Self::copy_to_buffer(self, &packet_id.to_be_bytes(), 0)
+    }
+
+    // 文字列書き込みサンプル
+    fn write_string_to_buffer(&mut self, string: &str, offset: usize) -> Result<usize, String> {
+        let bytes = string.as_bytes();
+        if bytes.len() > BUFFER_SIZE - offset {
+            return Err(format!(
+                "not enough buffer size. str: {} strbytelength:{}, offset{}",
+                string,
+                bytes.len(),
+                offset
+            ));
+        }
+        Ok(Self::copy_to_buffer(self, bytes, offset))
+    }
+
+    fn copy_to_buffer(&mut self, src_bytes: &[u8], offset: usize) -> usize {
+        for (index, v) in src_bytes.iter().enumerate() {
+            self.send_buffer[index + offset] = v.clone();
+        }
+        src_bytes.len() + offset
+    }
+
+    // 実際のデータ送信
+    async fn write_buffer(&mut self, size: usize) -> Result<(), std::io::Error> {
+        self.stream.writable().await?;
+        self.stream.write(&self.send_buffer[0..size]).await?;
         Ok(())
     }
 }
