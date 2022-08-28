@@ -3,6 +3,9 @@ use tokio::{
     net::TcpStream,
 };
 
+#[path = "packets/sample_entity_packet.rs"]
+mod sample_entity_packet;
+
 const BUFFER_SIZE: usize = 1024;
 
 pub struct Socket {
@@ -40,7 +43,8 @@ impl Socket {
             }
 
             // レスポンス送信テスト
-            self.send_string("Response 日本語テスト").await?;
+            // self.send_string("Response 日本語テスト").await?;
+            self.send_struct().await?;
         }
     }
 
@@ -93,9 +97,10 @@ impl Socket {
     }
 
     // 送信
-    pub async fn send_string(&mut self, string: &str) -> Result<(), std::io::Error> {
+    #[allow(dead_code)]
+    pub async fn send_simple_string(&mut self, string: &str) -> Result<(), std::io::Error> {
         let header_size = self.write_header_to_buffer(100);
-        match self.write_string_to_buffer(string, header_size) {
+        match self.write_simple_string_to_buffer(string, header_size) {
             Ok(packet_size) => {
                 println!("send packet_size: {} ", packet_size);
                 self.write_buffer(packet_size).await
@@ -107,13 +112,33 @@ impl Socket {
         }
     }
 
+    // 雑に構造体を作って送る
+    pub async fn send_struct(&mut self) -> Result<(), std::io::Error> {
+        let header_size = self.write_header_to_buffer(100);
+        let entity = sample_entity_packet::SampleEntity::new(
+            1000100,
+            5.5555,
+            54.129,
+            "テストプレイヤー".to_string(),
+            250000,
+        );
+        let encoded = bincode::serialize(&entity).unwrap();
+        let total_size = self.copy_to_buffer(&encoded, header_size);
+
+        self.write_buffer(total_size).await
+    }
+
     // バッファは先頭から書き換え
     fn write_header_to_buffer(&mut self, packet_id: u16) -> usize {
         Self::copy_to_buffer(self, &packet_id.to_be_bytes(), 0)
     }
 
     // 文字列書き込みサンプル
-    fn write_string_to_buffer(&mut self, string: &str, offset: usize) -> Result<usize, String> {
+    fn write_simple_string_to_buffer(
+        &mut self,
+        string: &str,
+        offset: usize,
+    ) -> Result<usize, String> {
         let bytes = string.as_bytes();
         if bytes.len() > BUFFER_SIZE - offset {
             return Err(format!(
