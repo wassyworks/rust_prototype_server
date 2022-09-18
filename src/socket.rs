@@ -3,8 +3,8 @@ use tokio::{
     net::TcpStream,
 };
 
-#[path = "packets/sample_entity_packet.rs"]
-mod sample_entity_packet;
+#[path = "packets/simple_entity.rs"]
+mod simple_entity;
 
 const BUFFER_SIZE: usize = 1024;
 
@@ -115,7 +115,7 @@ impl Socket {
     // 雑に構造体を作って送る
     pub async fn send_struct(&mut self) -> Result<(), std::io::Error> {
         let header_size = self.write_header_to_buffer(100);
-        let entity = sample_entity_packet::SampleEntity::new(
+        let entity = simple_entity::SimpleEntity::new(
             1000100,
             5.5555,
             54.129,
@@ -153,7 +153,7 @@ impl Socket {
 
     fn copy_to_buffer(&mut self, src_bytes: &[u8], offset: usize) -> usize {
         for (index, v) in src_bytes.iter().enumerate() {
-            self.send_buffer[index + offset] = v.clone();
+            self.send_buffer[index + offset] = *v;
         }
         src_bytes.len() + offset
     }
