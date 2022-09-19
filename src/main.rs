@@ -10,6 +10,8 @@ mod simple_entity;
 #[path = "packets/simple_entity_list.rs"]
 mod simple_entity_list;
 
+#[path = "packets/packet_base.rs"]
+mod packet_base;
 #[path = "packets/packet_tag.rs"]
 mod packet_tag;
 
@@ -30,22 +32,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
     let encoded = bincode::serialize(&entity).unwrap();
     let decoded = bincode::deserialize::<simple_entity::SimpleEntity>(&encoded).unwrap();
-    println!("decoded:{:?}",decoded);
+    println!("decoded:{:?}", decoded);
 
-    let mut entities : Vec<simple_entity::SimpleEntity> = Vec::new();
+    let mut entities: Vec<simple_entity::SimpleEntity> = Vec::new();
     for i in 0..5 {
         entities.push(simple_entity::SimpleEntity::new(
-        1000100 + i,
-        5.5555,
-        54.129,
-        format!("テストプレイヤー{}", i).to_string(),
-        250000,
+            1000100 + i,
+            5.5555,
+            54.129,
+            format!("テストプレイヤー{}", i).to_string(),
+            250000,
         ));
     }
     let entity_list = simple_entity_list::SimpleEntityList::new(entities);
     let encoded = bincode::serialize(&entity_list).unwrap();
     let decoded = bincode::deserialize::<simple_entity_list::SimpleEntityList>(&encoded).unwrap();
-    println!("decoded:{:?}",decoded);
+    println!("decoded:{:?}", decoded);
 
     // サーバテスト
     socket_manager::start_accepting(44000).await?;
