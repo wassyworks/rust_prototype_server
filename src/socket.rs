@@ -1,7 +1,13 @@
+use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
+
+use crate::packet_base::PacketBase;
+
+#[path = "packets/simple_entity.rs"]
+mod simple_entity;
 
 const BUFFER_SIZE: usize = 1024;
 
@@ -10,6 +16,7 @@ pub struct Socket {
     serial: u64,
     is_open: bool,
     send_buffer: [u8; BUFFER_SIZE],
+    recv_buffer: [u8; BUFFER_SIZE],
 }
 
 impl Socket {
@@ -19,6 +26,7 @@ impl Socket {
             serial,
             is_open: true,
             send_buffer: [0; BUFFER_SIZE],
+            recv_buffer: [0; BUFFER_SIZE],
         }
     }
     pub async fn start_reading(&mut self) -> Result<(), std::io::Error> {
@@ -40,7 +48,15 @@ impl Socket {
             }
 
             // レスポンス送信テスト
-            self.send_string("Response 日本語テスト").await?;
+            // self.send_string("Response 日本語テスト").await?;
+            let entity = simple_entity::SimpleEntity::new(
+                1000100,
+                5.5555,
+                54.129,
+                "テストプレイヤー".to_string(),
+                250000,
+            );
+            self.send(entity).await?;
         }
     }
 
@@ -92,10 +108,58 @@ impl Socket {
         Ok(())
     }
 
+    // 受信
+    #[allow(dead_code)]
+    async fn receive<'de, T: Deserialize<'de> + std::fmt::Display>(
+        &'de mut self,
+    ) -> Result<(), std::io::Error> {
+        let n = self.stream.read(&mut self.recv_buffer).await;
+        match n {
+            Ok(0) => {
+                println!("socket closed.");
+                return Ok(());
+            }
+            Ok(bytes) => {
+                println!("read {} bytes.", bytes);
+                let s = deserialize::<T>(&self.recv_buffer[0..bytes]);
+                match s {
+                    Some(deserialized) => {
+                        println!("received : {}", deserialized);
+                    }
+                    None => {
+                        println!("failed to receive");
+                    }
+                }
+            }
+            Err(err) => {
+                println!("read body error occured. {}", err.to_string());
+            }
+        }
+        Ok(())
+    }
+
     // 送信
-    pub async fn send_string(&mut self, string: &str) -> Result<(), std::io::Error> {
+    pub async fn send<T: Serialize + PacketBase>(
+        &mut self,
+        packet: T,
+    ) -> Result<(), std::io::Error> {
+        let header_size = self.write_header_to_buffer(packet.get_tag() as u16);
+
+        // シリアライズしてからパケットを送信
+        match serialize(packet) {
+            Some(bytes) => {
+                let total_size = self.copy_to_buffer(&bytes, header_size);
+                self.write_buffer(total_size).await
+            }
+            None => Ok(()),
+        }
+    }
+
+    // 送信
+    #[allow(dead_code)]
+    pub async fn send_simple_string(&mut self, string: &str) -> Result<(), std::io::Error> {
         let header_size = self.write_header_to_buffer(100);
-        match self.write_string_to_buffer(string, header_size) {
+        match self.write_simple_string_to_buffer(string, header_size) {
             Ok(packet_size) => {
                 println!("send packet_size: {} ", packet_size);
                 self.write_buffer(packet_size).await
@@ -113,7 +177,11 @@ impl Socket {
     }
 
     // 文字列書き込みサンプル
-    fn write_string_to_buffer(&mut self, string: &str, offset: usize) -> Result<usize, String> {
+    fn write_simple_string_to_buffer(
+        &mut self,
+        string: &str,
+        offset: usize,
+    ) -> Result<usize, String> {
         let bytes = string.as_bytes();
         if bytes.len() > BUFFER_SIZE - offset {
             return Err(format!(
@@ -128,7 +196,7 @@ impl Socket {
 
     fn copy_to_buffer(&mut self, src_bytes: &[u8], offset: usize) -> usize {
         for (index, v) in src_bytes.iter().enumerate() {
-            self.send_buffer[index + offset] = v.clone();
+            self.send_buffer[index + offset] = *v;
         }
         src_bytes.len() + offset
     }
@@ -138,5 +206,29 @@ impl Socket {
         self.stream.writable().await?;
         self.stream.write(&self.send_buffer[0..size]).await?;
         Ok(())
+    }
+}
+
+fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
+    match bincode::serialize(&packet) {
+        Ok(bytes) => {
+            return Some(bytes);
+        }
+        Err(e) => {
+            println!("failed to serialization. {}", e.to_string());
+            return None;
+        }
+    }
+}
+
+fn deserialize<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Option<T> {
+    match bincode::deserialize::<T>(bytes) {
+        Ok(decoded) => {
+            return Some(decoded);
+        }
+        Err(e) => {
+            println!("failed to deserialization. {}", e.to_string());
+            return None;
+        }
     }
 }
