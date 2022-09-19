@@ -108,6 +108,8 @@ impl Socket {
         Ok(())
     }
 
+    // 受信
+    #[allow(dead_code)]
     async fn receive<'de, T: Deserialize<'de> + std::fmt::Display>(
         &'de mut self,
     ) -> Result<(), std::io::Error> {
