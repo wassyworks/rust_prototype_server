@@ -2,7 +2,7 @@ mod logger;
 mod simple_counter;
 mod socket_manager;
 
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 #[path = "packets/simple_entity.rs"]
 mod simple_entity;
@@ -14,6 +14,11 @@ mod simple_entity_list;
 mod packet_base;
 #[path = "packets/packet_tag.rs"]
 mod packet_tag;
+
+mod client;
+mod client_manager;
+mod dispatcher;
+mod simple_entity_receiver;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -48,9 +53,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let encoded = bincode::serialize(&entity_list).unwrap();
     let decoded = bincode::deserialize::<simple_entity_list::SimpleEntityList>(&encoded).unwrap();
     println!("decoded:{:?}", decoded);
+    // --
 
+    let mut dispatcher = dispatcher::Dispatcher::new();
+    let simple_entity_receiver = simple_entity_receiver::SimpleEntityReceiver::new();
+    dispatcher.add(
+        packet_tag::PacketTag::SimpleEntityList,
+        simple_entity_receiver.make_receive_fn(),
+    );
+
+    let mut client_manager = client_manager::ClientManager::new();
     // サーバテスト
-    socket_manager::start_accepting(44000).await?;
+    socket_manager::start_accepting(44000, Arc::new(dispatcher)).await?;
 
     Ok(())
 }

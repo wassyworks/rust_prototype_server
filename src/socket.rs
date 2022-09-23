@@ -4,7 +4,8 @@ use tokio::{
     net::TcpStream,
 };
 
-use crate::packet_base::PacketBase;
+use crate::{dispatcher, packet_base::PacketBase, packet_tag::PacketTag};
+use std::sync::Arc;
 
 #[path = "packets/simple_entity.rs"]
 mod simple_entity;
@@ -29,7 +30,10 @@ impl Socket {
             recv_buffer: [0; BUFFER_SIZE],
         }
     }
-    pub async fn start_reading(&mut self) -> Result<(), std::io::Error> {
+    pub async fn start_reading(
+        &mut self,
+        dispatcher: Arc<dispatcher::Dispatcher>,
+    ) -> Result<(), std::io::Error> {
         // Nagleアルゴリズムを切る
         self.stream.set_nodelay(true)?;
 

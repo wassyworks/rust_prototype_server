@@ -6,16 +6,19 @@ use tokio::{
     sync::Mutex,
 };
 
+use crate::dispatcher::Dispatcher;
+
 pub struct SocketManager {
     sockets: Vec<socket::Socket>,
     latest_serial: u64,
+    dispatcher: Arc<Dispatcher>,
 }
 
-pub async fn start_accepting(port: u16) -> Result<(), std::io::Error> {
+pub async fn start_accepting(port: u16, dispatcher: Arc<Dispatcher>) -> Result<(), std::io::Error> {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port.to_string())).await?;
 
     println!("start accepting.");
-    let socket_manager = Arc::new(Mutex::new(SocketManager::new()));
+    let socket_manager = Arc::new(Mutex::new(SocketManager::new(dispatcher)));
     loop {
         let (stream, _) = listener.accept().await?;
         let man = socket_manager.clone();
@@ -33,10 +36,11 @@ pub async fn start_accepting(port: u16) -> Result<(), std::io::Error> {
 }
 
 impl SocketManager {
-    pub fn new() -> SocketManager {
+    pub fn new(dispatcher: Arc<Dispatcher>) -> SocketManager {
         SocketManager {
             sockets: Vec::new(),
             latest_serial: 0,
+            dispatcher,
         }
     }
 
@@ -47,7 +51,7 @@ impl SocketManager {
         println!("client connected sockets:{}", self.sockets.len());
         // パケット読み出し
         let socket = &mut self.sockets.last_mut().unwrap();
-        socket.start_reading().await?;
+        socket.start_reading(self.dispatcher.clone()).await?;
         Ok(())
     }
 }
