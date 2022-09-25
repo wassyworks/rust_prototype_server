@@ -1,5 +1,4 @@
 mod logger;
-mod simple_counter;
 mod socket_manager;
 
 use std::{error::Error, sync::Arc};
@@ -18,6 +17,7 @@ mod packet_tag;
 mod client;
 mod client_manager;
 mod dispatcher;
+mod simple_entity_manager;
 mod simple_entity_receiver;
 
 #[tokio::main]
@@ -56,10 +56,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // --
 
     let mut dispatcher = dispatcher::Dispatcher::new();
+    let mut manager = simple_entity_manager::SimpleEntityManager::new();
     let simple_entity_receiver = simple_entity_receiver::SimpleEntityReceiver::new();
     dispatcher.add(
         packet_tag::PacketTag::SimpleEntityList,
-        simple_entity_receiver.make_receive_fn(),
+        simple_entity_receiver::make_receive_fn(&mut manager),
     );
 
     let mut client_manager = client_manager::ClientManager::new();

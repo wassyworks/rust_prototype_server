@@ -4,7 +4,7 @@ use tokio::{
     net::TcpStream,
 };
 
-use crate::{dispatcher, packet_base::PacketBase, packet_tag::PacketTag};
+use crate::{dispatcher, packet_base::PacketBase};
 use std::sync::Arc;
 
 #[path = "packets/simple_entity.rs"]
@@ -213,6 +213,7 @@ impl Socket {
     }
 }
 
+#[allow(dead_code)]
 pub fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
     match bincode::serialize(&packet) {
         Ok(bytes) => {
@@ -225,6 +226,8 @@ pub fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
     }
 }
 
+// ここにはいらないかも
+#[allow(dead_code)]
 pub fn deserialize<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Option<T> {
     match bincode::deserialize::<T>(bytes) {
         Ok(decoded) => {

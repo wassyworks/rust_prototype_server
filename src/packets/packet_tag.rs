@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, Clone, Copy, PartialEq, Debug)]
 pub enum PacketTag {
     SimpleEntity,
     SimpleEntityList,
