@@ -209,7 +209,7 @@ impl Socket {
     }
 }
 
-fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
+pub fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
     match bincode::serialize(&packet) {
         Ok(bytes) => {
             return Some(bytes);
@@ -221,7 +221,7 @@ fn serialize<T: Serialize>(packet: T) -> Option<Vec<u8>> {
     }
 }
 
-fn deserialize<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Option<T> {
+pub fn deserialize<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Option<T> {
     match bincode::deserialize::<T>(bytes) {
         Ok(decoded) => {
             return Some(decoded);
