@@ -1,7 +1,7 @@
-use tokio::{
+use async_std::{
     fs::File,
     fs::{remove_file, OpenOptions},
-    io::AsyncWriteExt,
+    prelude::*,
 };
 
 pub struct Logger {
@@ -25,32 +25,41 @@ impl Logger {
         }
     }
 
-    pub async fn remove_log(&self, path: &str) -> Result<(), std::io::Error> {
-        remove_file(path).await?;
-        println!("file removed. {}", path);
-        Ok(())
-    }
-
-    pub async fn logging(&mut self) {
-        if self.opened_file.is_none() {
-            let result = Self::open("foo.txt").await;
-            match result {
-                Ok(file) => {
-                    self.opened_file = Some(file);
+    pub fn remove_log(&self, path: &str) {
+        async_std::task::block_on(async move {
+            match remove_file(path).await {
+                Ok(_) => {
+                    println!("file removed. {}", path);
                 }
-                Err(err) => {
-                    println!("logging open file error. {}", err.to_string());
+                _ => {
+                    println!("failed to file remove. {}", path);
                 }
             }
-        }
-        let result = self
-            .opened_file
-            .as_mut()
-            .unwrap()
-            .write_all("ロガーテスト\n".as_bytes())
-            .await;
-        if result.is_err() {
-            println!("failed to write file.");
-        }
+        });
+    }
+
+    pub fn logging(&mut self) {
+        async_std::task::block_on(async move {
+            if self.opened_file.is_none() {
+                let result = Self::open("foo.txt").await;
+                match result {
+                    Ok(file) => {
+                        self.opened_file = Some(file);
+                    }
+                    Err(err) => {
+                        println!("logging open file error. {}", err.to_string());
+                    }
+                }
+            }
+            let result = self
+                .opened_file
+                .as_mut()
+                .unwrap()
+                .write_all("ロガーテスト\n".as_bytes())
+                .await;
+            if result.is_err() {
+                println!("failed to write file.");
+            }
+        });
     }
 }

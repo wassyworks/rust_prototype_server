@@ -15,13 +15,7 @@ mod packet_base;
 #[path = "packets/packet_tag.rs"]
 mod packet_tag;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // ログ出力テスト
-    let mut log = logger::Logger::new();
-    log.logging().await;
-    log.remove_log("foo.txt").await?;
-
+fn serialize_deserialize_test() {
     // シリアライズ、デシリアライズテスト
     let entity = simple_entity::SimpleEntity::new(
         1000100,
@@ -48,9 +42,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let encoded = bincode::serialize(&entity_list).unwrap();
     let decoded = bincode::deserialize::<simple_entity_list::SimpleEntityList>(&encoded).unwrap();
     println!("decoded:{:?}", decoded);
+}
+
+// #[tokio::main]
+// async fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
+    // ログ出力テスト
+    let mut log = logger::Logger::new();
+    log.logging();
+
+    serialize_deserialize_test();
 
     // サーバテスト
-    socket_manager::start_accepting(44000).await?;
+    // socket_manager::start_accepting(44000).await;
 
-    Ok(())
+    log.remove_log("foo.txt");
+    // Ok(())
 }
