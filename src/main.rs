@@ -2,8 +2,6 @@ mod logger;
 mod simple_counter;
 mod socket_manager;
 
-use std::error::Error;
-
 #[path = "packets/simple_entity.rs"]
 mod simple_entity;
 
@@ -44,8 +42,6 @@ fn serialize_deserialize_test() {
     println!("decoded:{:?}", decoded);
 }
 
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn Error>> {
 fn main() {
     // ログ出力テスト
     let mut log = logger::Logger::new();
@@ -53,9 +49,7 @@ fn main() {
 
     serialize_deserialize_test();
 
-    // サーバテスト
-    // socket_manager::start_accepting(44000).await;
-
     log.remove_log("foo.txt");
-    // Ok(())
+    // サーバテスト
+    socket_manager::start_accepting(44000);
 }

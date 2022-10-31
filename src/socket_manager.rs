@@ -1,35 +1,32 @@
 #[path = "socket.rs"]
 mod socket;
+use async_std::net::{TcpListener, TcpStream};
+use async_std::prelude::*;
+use async_std::sync::Mutex;
 use std::sync::Arc;
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::Mutex,
-};
 
 pub struct SocketManager {
     sockets: Vec<socket::Socket>,
     latest_serial: u64,
 }
 
-pub async fn start_accepting(port: u16) -> Result<(), std::io::Error> {
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port.to_string())).await?;
+pub fn start_accepting(port: u16) {
+    async_std::task::block_on(async {
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", port.to_string())).await;
+        // if listener.is_err() {
+        //     println!("failed to bind. ");
+        //     return;
+        // }
 
-    println!("start accepting.");
-    let socket_manager = Arc::new(Mutex::new(SocketManager::new()));
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let man = socket_manager.clone();
-        println!("accepted.");
-        tokio::spawn(async move {
-            let result = man.lock().await.on_accepted(stream).await;
-            match result {
-                Err(err) => {
-                    println!("acception failed. {}", err.to_string());
-                }
-                _ => {}
-            }
-        });
-    }
+        println!("start accepting.");
+
+        let mut new_conn = listener.as_ref().unwrap().incoming();
+        let socket_manager = Arc::new(Mutex::new(SocketManager::new()));
+        while let Some(result) = new_conn.next().await {
+            let man = socket_manager.clone();
+            println!("accepted.");
+        }
+    });
 }
 
 impl SocketManager {

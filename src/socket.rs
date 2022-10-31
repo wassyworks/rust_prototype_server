@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+use async_std::{
+    io::{ReadExt, WriteExt},
     net::TcpStream,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::packet_base::PacketBase;
 
@@ -61,13 +61,13 @@ impl Socket {
     }
 
     async fn read_header(&mut self) -> Result<(), std::io::Error> {
-        let header = self.stream.read_u16().await;
+        let mut buf = [0_u8, 2];
+        let header = self.stream.read_exact(&mut buf).await;
+
+        // let header = self.stream.read_u16().await;
         match header {
-            Ok(0) => {
-                println!("socket closed.");
-                self.is_open = false;
-            }
-            Ok(packet_id) => {
+            Ok(_) => {
+                let packet_id = u16::from_be_bytes(buf);
                 println!("read header {}.", packet_id);
             }
             Err(err) => {
@@ -203,7 +203,6 @@ impl Socket {
 
     // 実際のデータ送信
     async fn write_buffer(&mut self, size: usize) -> Result<(), std::io::Error> {
-        self.stream.writable().await?;
         self.stream.write(&self.send_buffer[0..size]).await?;
         Ok(())
     }
