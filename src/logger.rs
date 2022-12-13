@@ -51,9 +51,9 @@ impl Logger {
             let mut f = file.lock().await;
             let now = Utc::now().format("%Y%m%dT%H%M%S");
             let result = f
-                .write_all(format!("{}\n", string.as_str()).as_bytes())
+                .write_all(format!("{},{}\n", now.to_string(), string.as_str()).as_bytes())
                 .await;
-            println!("write:{:?}date,{}", now.to_string(), string);
+            println!("{:?},{}", now.to_string(), string);
             if result.is_err() {
                 println!("failed to write file.");
             }
