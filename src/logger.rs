@@ -1,26 +1,33 @@
-use async_std::{
-    fs::File,
-    fs::{remove_file, OpenOptions},
-    prelude::*,
-};
+use async_std::{fs::remove_file, fs::File, fs::OpenOptions, prelude::*, sync::Mutex};
+use chrono::prelude::*;
+use std::sync::Arc;
 
 pub struct Logger {
-    opened_file: Option<File>,
+    opened_file: SharedFile,
 }
+type SharedFile = Arc<Mutex<File>>;
 
 impl Logger {
-    pub fn new() -> Logger {
-        Logger { opened_file: None }
-    }
-    async fn open(path: &str) -> Result<File, std::io::Error> {
+    pub async fn new(path: &str) -> Logger {
         let open_result = OpenOptions::new().append(true).open(path).await;
         match open_result {
             Ok(file) => {
-                return Ok(file);
+                println!("file open {}", path);
+                Logger {
+                    opened_file: Arc::new(Mutex::new(file)),
+                }
             }
             Err(_err) => {
                 println!("file create. {}", path);
-                return File::create(path).await;
+                match File::create(path).await {
+                    Ok(file) => Logger {
+                        opened_file: Arc::new(Mutex::new(file)),
+                    },
+                    _ => {
+                        println!("error");
+                        panic!();
+                    }
+                }
             }
         }
     }
@@ -38,25 +45,15 @@ impl Logger {
         });
     }
 
-    pub fn logging(&mut self) {
-        async_std::task::block_on(async move {
-            if self.opened_file.is_none() {
-                let result = Self::open("foo.txt").await;
-                match result {
-                    Ok(file) => {
-                        self.opened_file = Some(file);
-                    }
-                    Err(err) => {
-                        println!("logging open file error. {}", err.to_string());
-                    }
-                }
-            }
-            let result = self
-                .opened_file
-                .as_mut()
-                .unwrap()
-                .write_all("ロガーテスト\n".as_bytes())
+    pub async fn log(&mut self, string: String) {
+        let file = self.opened_file.clone();
+        async_std::task::spawn(async move {
+            let mut f = file.lock().await;
+            let now = Utc::now().format("%Y%m%dT%H%M%S");
+            let result = f
+                .write_all(format!("{}\n", string.as_str()).as_bytes())
                 .await;
+            println!("write:{:?}date,{}", now.to_string(), string);
             if result.is_err() {
                 println!("failed to write file.");
             }

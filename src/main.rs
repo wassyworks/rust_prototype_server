@@ -44,12 +44,14 @@ fn serialize_deserialize_test() {
 
 fn main() {
     // ログ出力テスト
-    let mut log = logger::Logger::new();
-    log.logging();
+    async_std::task::block_on(async {
+        let mut log = logger::Logger::new("debug.log").await;
+        log.log("テストログ2".to_string()).await;
 
-    serialize_deserialize_test();
+        serialize_deserialize_test();
 
-    log.remove_log("foo.txt");
-    // サーバテスト
+        // log.remove_log("debug.log");
+        // サーバテスト
+    });
     socket_manager::start_accepting(44000);
 }
